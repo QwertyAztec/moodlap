@@ -1,0 +1,190 @@
+:root {
+  font-family: 'EB Garamond', serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+
+  color-scheme: light dark;
+
+
+
+
+
+
+
+
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+  h1, h2, h3 {
+ 
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.3);
+}
+
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+
+
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #ffe4b9;
+  color: #800000;
+
+  font-family: 'EB Garamond', serif;
+}
+
+/*@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #551811; 
+    color: #d4a76d;           
+  }
+}*/
+
+
+/* THIS is the important part */
+#root {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;   /* 👈 THIS IS THE KEY */
+  justify-content: center;
+  gap: 1.2rem;
+
+   background-color: #fffefc;
+  padding: 3rem 4rem;
+  border-radius: 20px;
+  
+
+  text-align: center;    /* 👈 centers text like the title */
+}
+
+.nav-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.nav-buttons a {
+  display: inline-flex;
+}
+
+
+
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('./assets/snow.png') repeat;
+  opacity: 1;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Christmas-y Magical Textbox */
+.christmas-textbox {
+  width: 100%;
+  max-width: 600px;
+  min-height: 150px;
+  padding: 1em 1.2em;
+  font-family: 'EB Garamond', serif;
+  font-size: 1.1em;
+  color: #4b2e2e;                 /* warm brown text */
+  background-color: #fff5e6;       /* soft cream */
+  border: 2px solid #d2691e;       /* chocolate border */
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(210, 105, 30, 0.2);
+  resize: vertical;
+  transition: all 0.3s ease;
+  position: relative;
+  
+  background-repeat: no-repeat;
+  background-position: top right; /* adjust as needed */
+  background-size: 50px 50px;
+}
+
+/* Focus effect with golden glow */
+.christmas-textbox:focus {
+  outline: none;
+  border-color: #a52a2a; /* deep red */
+  box-shadow: 0 0 12px rgba(255, 223, 186, 0.6); /* warm glow */
+  background-color: #fff2e6; /* slight warm highlight */
+}
+
+.christmas-textbox::placeholder {
+  color: #c55a11; /* gentle cinnamon tone */
+  font-style: italic;
+}
+
+
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+
+/* Holiday Button Styles */
+.holiday-button {
+  background-color: #d2691e; /* warm chocolatey tone */
+  color: #fff;
+  border-radius: 10px;
+  border: none;
+  padding: 0.6em 1.4em;
+  cursor: pointer;
+  font-family: 'EB Garamond', serif;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.2);
+}
+
+.holiday-button:hover {
+  background-color: #a52a2a; /* deep red accent */
+  transform: scale(1.05);
+  box-shadow: 4px 4px 10px rgba(0,0,0,0.25);
+}
+
+.holiday-button:focus,
+.holiday-button:focus-visible {
+  outline: 4px auto #ffdead; /* gentle highlight */
+}
+
+
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
+
+
