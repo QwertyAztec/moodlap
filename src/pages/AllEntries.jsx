@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { auth, db } from "../firebase";
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 
 const MOODS = [
   { id: "Buzzing",    color: "#F9A8D4", bg: "#FDF2F8", dot: "#EC4899" },
@@ -29,19 +31,22 @@ function Pill({ label }) {
 export default function AllEntries() {
   const [entries, setEntries] = useState([]);
 
-  const load = () => {
-    const saved = JSON.parse(localStorage.getItem("entries")) || [];
-    setEntries([...saved].reverse());
-  };
+  useEffect(() => {
+    const q = query(
+      collection(db, "users", auth.currentUser.uid, "entries"),
+      orderBy("date", "desc")
+    );
+    return onSnapshot(q, snap => {
+      setEntries(snap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        date: d.data().date?.toDate?.()?.toLocaleString() || "",
+      })));
+    });
+  }, []);
 
-  useEffect(() => { load(); }, []);
-
-  const deleteEntry = (indexInReversed) => {
-    const saved = JSON.parse(localStorage.getItem("entries")) || [];
-    const originalIndex = saved.length - 1 - indexInReversed;
-    saved.splice(originalIndex, 1);
-    localStorage.setItem("entries", JSON.stringify(saved));
-    load();
+  const deleteEntry = async (entry) => {
+    await deleteDoc(doc(db, "users", auth.currentUser.uid, "entries", entry.id));
   };
 
   return (
@@ -61,7 +66,6 @@ export default function AllEntries() {
         a { text-decoration: none; }
       `}</style>
 
-      {/* Nav */}
       <nav style={{
         background: "rgba(255,240,246,0.9)", backdropFilter: "blur(14px)",
         borderBottom: "1px solid #fce7f3", padding: "0 24px",
@@ -104,12 +108,12 @@ export default function AllEntries() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {entries.map((entry, i) => (
-              <div key={i} className="card" style={{
+            {entries.map((entry) => (
+              <div key={entry.id} className="card" style={{
                 background: "#fff", border: "1px solid #fce7f3",
                 borderRadius: "16px", padding: "20px 24px", position: "relative",
               }}>
-                <button className="del-btn" onClick={() => deleteEntry(i)} title="Delete entry" style={{
+                <button className="del-btn" onClick={() => deleteEntry(entry)} title="Delete entry" style={{
                   position: "absolute", top: "14px", right: "14px",
                   background: "#FFF0F6", border: "1px solid #fce7f3",
                   borderRadius: "99px", width: "28px", height: "28px",

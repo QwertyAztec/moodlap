@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth, db } from "../firebase";
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from "firebase/firestore";
 
 const MOODS = [
   { id: "Buzzing",    sub: "Full of life",   color: "#F9A8D4", bg: "#FDF2F8", dot: "#EC4899" },
@@ -30,7 +33,6 @@ function Pill({ label, tiny }) {
   );
 }
 
-// ── Calendar helpers ──────────────────────────────────────────────
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
 function getFirstDayOfMonth(year, month) { return new Date(year, month, 1).getDay(); }
 
@@ -44,7 +46,6 @@ function CalendarView({ entries }) {
   const firstDay = getFirstDayOfMonth(viewYear, viewMonth);
   const monthName = new Date(viewYear, viewMonth).toLocaleString("default", { month: "long", year: "numeric" });
 
-  // Map date string "D/M/YYYY" → entries
   const byDay = {};
   entries.forEach(e => {
     const d = new Date(e.date);
@@ -62,21 +63,16 @@ function CalendarView({ entries }) {
 
   return (
     <div style={{ background: "#fff", border: "1px solid #fce7f3", borderRadius: "20px", padding: "24px", marginBottom: "32px" }}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
         <button onClick={prevMonth} style={{ background: "none", border: "1px solid #fce7f3", borderRadius: "99px", width: "32px", height: "32px", color: "#78716C", fontSize: "14px" }}>‹</button>
         <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: "18px", color: "#1C1917" }}>{monthName}</span>
         <button onClick={nextMonth} style={{ background: "none", border: "1px solid #fce7f3", borderRadius: "99px", width: "32px", height: "32px", color: "#78716C", fontSize: "14px" }}>›</button>
       </div>
-
-      {/* Day labels */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", marginBottom: "6px" }}>
         {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d => (
           <div key={d} style={{ textAlign: "center", fontSize: "10px", color: "#C4B5A8", fontWeight: 600, letterSpacing: "0.05em", padding: "4px 0" }}>{d}</div>
         ))}
       </div>
-
-      {/* Day cells */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px" }}>
         {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -86,33 +82,20 @@ function CalendarView({ entries }) {
           const isToday = day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear();
           const isSelected = selected === day;
           const topMood = dayEntries[0] ? getMood(dayEntries[0].mood) : null;
-
           return (
             <button key={day} onClick={() => setSelected(isSelected ? null : day)} style={{
-              aspectRatio: "1",
-              border: isSelected ? "2px solid #7C3AED" : "2px solid transparent",
-              borderRadius: "10px",
-              background: isSelected ? "#F0EBF8" : (topMood ? topMood.bg : "transparent"),
+              aspectRatio: "1", border: isSelected ? "2px solid #7C3AED" : "2px solid transparent",
+              borderRadius: "10px", background: isSelected ? "#F0EBF8" : (topMood ? topMood.bg : "transparent"),
               cursor: dayEntries.length ? "pointer" : "default",
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px",
-              position: "relative", padding: "4px",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px", padding: "4px",
             }}>
-              <span style={{
-                fontSize: "12px", fontWeight: isToday ? 700 : 400,
-                color: isSelected ? "#7C3AED" : (isToday ? "#7C3AED" : "#44403C"),
-              }}>{day}</span>
-              {topMood && (
-                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: topMood.dot }} />
-              )}
-              {dayEntries.length > 1 && (
-                <span style={{ fontSize: "8px", color: topMood?.dot, fontWeight: 700 }}>+{dayEntries.length - 1}</span>
-              )}
+              <span style={{ fontSize: "12px", fontWeight: isToday ? 700 : 400, color: isSelected ? "#7C3AED" : (isToday ? "#7C3AED" : "#44403C") }}>{day}</span>
+              {topMood && <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: topMood.dot }} />}
+              {dayEntries.length > 1 && <span style={{ fontSize: "8px", color: topMood?.dot, fontWeight: 700 }}>+{dayEntries.length - 1}</span>}
             </button>
           );
         })}
       </div>
-
-      {/* Selected day entries */}
       {selected && (
         <div style={{ marginTop: "20px", borderTop: "1px solid #fce7f3", paddingTop: "16px" }}>
           <p style={{ fontSize: "12px", color: "#A8A29E", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
@@ -135,26 +118,27 @@ function CalendarView({ entries }) {
   );
 }
 
-// ── Main Home ─────────────────────────────────────────────────────
 export default function Home() {
   const [entries, setEntries] = useState([]);
   const [filter, setFilter] = useState(null);
-  const [view, setView] = useState("feed"); // "feed" | "calendar"
+  const [view, setView] = useState("feed");
 
-  const load = () => {
-    const saved = JSON.parse(localStorage.getItem("entries")) || [];
-    setEntries([...saved].reverse());
-  };
+  useEffect(() => {
+    const q = query(
+      collection(db, "users", auth.currentUser.uid, "entries"),
+      orderBy("date", "desc")
+    );
+    return onSnapshot(q, snap => {
+      setEntries(snap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        date: d.data().date?.toDate?.()?.toLocaleString() || "",
+      })));
+    });
+  }, []);
 
-  useEffect(() => { load(); }, []);
-
-  const deleteEntry = (indexInReversed) => {
-    const saved = JSON.parse(localStorage.getItem("entries")) || [];
-    // reversed index → original index
-    const originalIndex = saved.length - 1 - indexInReversed;
-    saved.splice(originalIndex, 1);
-    localStorage.setItem("entries", JSON.stringify(saved));
-    load();
+  const deleteEntry = async (entry) => {
+    await deleteDoc(doc(db, "users", auth.currentUser.uid, "entries", entry.id));
   };
 
   const filtered = filter ? entries.filter(e => e.mood === filter) : entries;
@@ -201,12 +185,14 @@ export default function Home() {
               boxShadow: "0 4px 14px rgba(124,58,237,0.25)",
             }}>+ Log today</button>
           </Link>
+          <button onClick={() => signOut(auth)} style={{
+            background: "transparent", border: "1px solid #fce7f3",
+            color: "#78716C", fontSize: "13px", padding: "7px 14px", borderRadius: "99px",
+          }}>Sign out</button>
         </div>
       </nav>
 
-      {/* Page content — max width container */}
       <div style={{ maxWidth: "760px", margin: "0 auto", padding: "0 24px" }}>
-
         {/* Hero */}
         <div style={{
           background: "linear-gradient(135deg, #FDF4FF 0%, #EEF2FF 50%, #F0FDF4 100%)",
@@ -214,14 +200,8 @@ export default function Home() {
         }}>
           {latest ? (
             <>
-              <p style={{ fontSize: "11px", color: "#A8A29E", letterSpacing: "0.08em", marginBottom: "10px", textTransform: "uppercase" }}>
-                Latest · {latest.date}
-              </p>
-              <h1 style={{
-                fontFamily: "'DM Serif Display', serif",
-                fontSize: "clamp(28px, 4vw, 46px)", lineHeight: 1.1,
-                color: "#1C1917", maxWidth: "520px", marginBottom: "14px",
-              }}>{latest.text}</h1>
+              <p style={{ fontSize: "11px", color: "#A8A29E", letterSpacing: "0.08em", marginBottom: "10px", textTransform: "uppercase" }}>Latest · {latest.date}</p>
+              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "clamp(28px, 4vw, 46px)", lineHeight: 1.1, color: "#1C1917", maxWidth: "520px", marginBottom: "14px" }}>{latest.text}</h1>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                 {latest.mood && <Pill label={latest.mood} />}
               </div>
@@ -237,9 +217,8 @@ export default function Home() {
           )}
         </div>
 
-        {/* View toggle + Filter strip */}
+        {/* View toggle + Filter */}
         <div style={{ padding: "18px 0 0", display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-          {/* Feed / Calendar toggle */}
           <div style={{ display: "flex", background: "#fff", border: "1px solid #fce7f3", borderRadius: "99px", padding: "3px", marginRight: "8px" }}>
             {["feed", "calendar"].map(v => (
               <button key={v} onClick={() => setView(v)} style={{
@@ -250,7 +229,6 @@ export default function Home() {
               }}>{v === "feed" ? "📋 Feed" : "📅 Calendar"}</button>
             ))}
           </div>
-
           {view === "feed" && (
             <>
               <span style={{ fontSize: "11px", color: "#C4B5A8", textTransform: "uppercase", letterSpacing: "0.08em" }}>Filter</span>
@@ -270,28 +248,27 @@ export default function Home() {
           )}
         </div>
 
-        {/* Calendar view */}
+        {/* Calendar */}
         {view === "calendar" && (
           <div style={{ marginTop: "20px" }}>
             <CalendarView entries={entries} />
           </div>
         )}
 
-        {/* Feed view */}
+        {/* Feed */}
         {view === "feed" && (
           <div style={{ paddingTop: "16px", paddingBottom: "56px" }}>
             {filtered.length === 0 ? (
               <p style={{ color: "#A8A29E", fontSize: "14px", textAlign: "center", marginTop: "40px" }}>No entries yet 🌸</p>
             ) : (
               <>
-                {/* Top 2 featured cards */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
                   {filtered.slice(0, 2).map((entry, i) => (
-                    <div key={i} className="card" style={{
+                    <div key={entry.id} className="card" style={{
                       background: "#fff", border: "1px solid #fce7f3",
                       borderRadius: "16px", padding: "20px", position: "relative",
                     }}>
-                      <button className="del-btn" onClick={() => deleteEntry(i)} title="Delete" style={{
+                      <button className="del-btn" onClick={() => deleteEntry(entry)} title="Delete" style={{
                         position: "absolute", top: "12px", right: "12px",
                         background: "#FFF0F6", border: "1px solid #fce7f3",
                         borderRadius: "99px", width: "26px", height: "26px",
@@ -305,11 +282,9 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-
-                {/* Rest as rows */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                   {filtered.slice(2).map((entry, i) => (
-                    <div key={i} className="row-card" style={{
+                    <div key={entry.id} className="row-card" style={{
                       background: "rgba(255,255,255,0.75)", border: "1px solid #fce7f3",
                       borderRadius: "12px", padding: "13px 18px",
                       display: "flex", alignItems: "center", gap: "14px", position: "relative",
@@ -317,7 +292,7 @@ export default function Home() {
                       {entry.mood && <Pill label={entry.mood} tiny />}
                       <div style={{ flex: 1, fontSize: "13px", color: "#44403C", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.text}</div>
                       <div style={{ fontSize: "11px", color: "#C4B5A8", whiteSpace: "nowrap" }}>{entry.date}</div>
-                      <button className="del-btn" onClick={() => deleteEntry(i + 2)} title="Delete" style={{
+                      <button className="del-btn" onClick={() => deleteEntry(entry)} title="Delete" style={{
                         background: "#FFF0F6", border: "1px solid #fce7f3",
                         borderRadius: "99px", width: "24px", height: "24px",
                         color: "#EC4899", fontSize: "11px", flexShrink: 0,

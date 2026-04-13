@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { auth, db } from "../firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const MOODS = [
   { id: "Buzzing",    sub: "Full of life",   color: "#F9A8D4", bg: "#FDF2F8", dot: "#EC4899" },
@@ -16,10 +18,13 @@ export default function NewEntry() {
   const [done, setDone] = useState(false);
   const navigate = useNavigate();
 
-  function saveEntry() {
+  async function saveEntry() {
     if (!text.trim()) return;
-    const oldEntries = JSON.parse(localStorage.getItem("entries")) || [];
-    localStorage.setItem("entries", JSON.stringify([...oldEntries, { text, mood, date: new Date().toLocaleString() }]));
+    await addDoc(collection(db, "users", auth.currentUser.uid, "entries"), {
+      text,
+      mood,
+      date: serverTimestamp(),
+    });
     setDone(true);
     setTimeout(() => navigate("/"), 1200);
   }
@@ -38,7 +43,6 @@ export default function NewEntry() {
         a { text-decoration: none; }
       `}</style>
 
-      {/* Nav */}
       <nav style={{
         background: "rgba(255,240,246,0.9)", backdropFilter: "blur(14px)",
         borderBottom: "1px solid #fce7f3", padding: "0 24px",
